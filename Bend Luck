@@ -1,0 +1,19 @@
+let s_actor = game.user.character;
+let actorUpdateData = duplicate(s_actor);
+
+if (actorUpdateData.data.resources.primary.value >= 2) {
+actorUpdateData.data.resources.primary.value -= 2;
+
+s_actor.update(actorUpdateData);
+let bendluck= new Roll('1d4').roll().total;
+ChatMessage.create({
+user : game.user._id,
+content : "Bend Luck! \n Rolled a " + bendluck ,
+speaker : speaker
+});
+}
+else ChatMessage.create({
+user : game.user._id,
+content : "Not enough sorcery points!",
+speaker : speaker
+});
