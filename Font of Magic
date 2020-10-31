@@ -1,0 +1,22 @@
+// Make sure the Resource 2 on your sheet is of Font of Magic
+
+let s_actor = game.user.character;
+let actorUpdateData = duplicate(s_actor);
+
+if (actorUpdateData.data.resources.secondary.value >= 1) {
+actorUpdateData.data.resources.primary.value = actorUpdateData.data.resources.primary.max;
+actorUpdateData.data.resources.secondary.value -= 1;
+
+s_actor.update(actorUpdateData);
+
+ChatMessage.create({
+user : game.user._id,
+content : "Font of Magic has been spent!\nSorcery points replenished! ",
+speaker : speaker
+});
+}
+else ChatMessage.create({
+user : game.user._id,
+content : "Font of Magic depleted, take a long rest.",
+speaker : speaker
+});
