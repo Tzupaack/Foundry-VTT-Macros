@@ -1,0 +1,207 @@
+// Hi, this is a Macro for casting using spell points.
+// Based on u/Braydee7 from r/FoundryVTT
+// I added a nice selection window for the spell levels and Meta magic options.
+// also it rolls automatically for Wild Magic Surge!
+// Check the last part for how to disable the surge roll.
+//
+// How to use : 
+// Make the Resource 1 on your Character Sheet to Spell points. 
+// For the Wild Surge be sure to have a rollable table named : "Wild Magic Surge"
+// Copy all of these to a macro, and set it to "script"
+// Find the Meta magic list around line 45 and edit it accordingly.
+
+let namedfields = (...fields) => {
+  return (...arr) => {
+    var obj = {};
+    fields.forEach((field, index) => {
+      obj[field] = arr[index];
+    });
+    return obj;
+  };
+};
+
+
+// There are the costs of the spells based on the DMG 288-289
+let spelltype = namedfields('name', 'level','cost')
+var spells = [
+  spelltype ('Cantrip', 0, 0),
+  spelltype ('1st level spell', 1, 2),
+  spelltype ('2nd level spell', 2, 3),
+  spelltype ('3rd level spell', 3, 5),
+  spelltype ('4th level spell', 4, 6),
+  spelltype ('5th level spell', 5, 7),
+  spelltype ('6th level spell', 6, 9),
+  spelltype ('7th level spell', 7, 10),
+  spelltype ('8th level spell', 8, 11),
+  spelltype ('9th level spell', 9, 13)
+];
+
+// Just use // to comment out any meta option to disable
+// Do not comment out the 'None' option!
+let metatype = namedfields('name', 'cost')
+var metamagics = [
+  metatype ('None', 0),
+  metatype ('Careful spell', 1),
+//  metatype ('Distant Spell', 1),
+//  metatype ('Empowered Spell', 1),
+//  metatype ('Extended Spell', 1),
+//  metatype ('Heightened Spell', 3),
+//  metatype ('Quickened Spell', 2),
+//  metatype ('Heightened Spell', 3),
+//  metatype ('Heightened Spell', 3),
+  metatype ('Twinned', 2),
+  metatype ('Subtle spell', 1)
+];
+
+let applyChanges = false;
+new Dialog({
+  title: `Cast spell`,
+  content: `
+
+<form>
+  <div class="form-group">
+    <label>Level:</label>
+    <select id="spell-level" name="spell-level">
+      ${
+        spells.map((spell, index) => {
+          return `\t<option value=${index}>${spell.name}</option>`;
+        }).join('\n')
+      }
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label>Metamagic:</label>
+    <select id="meta-magic" name="meta-magic">
+      ${
+        metamagics.map((metatype , index) => {
+          return `\t<option value=${index}>${metatype .name}</option>`;
+        }).join('\n')
+      }
+    </select>
+  </div>
+
+</form>
+`,
+
+  buttons: {
+    yes: {
+      icon: "<i class='fas fa-check'></i>",
+      label: `Apply Changes`,
+      callback: () => applyChanges = true
+    },
+    no: {
+      icon: "<i class='fas fa-times'></i>",
+      label: `Cancel Changes`
+    },  },
+
+ default: "yes",
+  close: html => {
+    if (applyChanges) {
+        let spellIndex = parseInt(html.find('[name="spell-level"]')[0].value) || 0;
+        let metaIndex = parseInt(html.find('[name="meta-magic"]')[0].value) || 0;
+
+// Extracting out the values
+let spellname= spells[spellIndex].name;
+let spelllevel= spells[spellIndex].level;
+let spellcost= spells[spellIndex].cost;
+let metaname= metamagics[metaIndex].name;
+let metacost= metamagics[metaIndex].cost; 
+if (metaname == "Twinned") { metacost += spelllevel;}
+spellcost += metacost;
+
+let metaoption = ""
+if (metaname != "None") {metaoption = "With " + metaname + " metamagic !"};
+// Test message
+// ChatMessage.create({
+// user: game.user._id,
+// content: spellname + ' Level :  ' + spelllevel + ' Cost :' + spellcost + '\n' + metaname + ' '  + metacost, 
+// speaker: speaker
+// }, {});
+    
+// Start casting
+let s_actor = game.user.character;
+let s_cost = spellcost; 
+let actorUpdateData = duplicate(s_actor);
+
+if (actorUpdateData.data.resources.primary.value >= s_cost) {
+
+actorUpdateData.data.spells.spell1.value += 1; //increases spell slots by one
+actorUpdateData.data.resources.primary.value -= s_cost; //reduces spell points by cost
+s_actor.update(actorUpdateData);
+
+let feedback = spellname + " has been cast! " + metaoption + "\n" + s_cost+ " Spell Points Consumed\n "+ actorUpdateData.data.resources.primary.value +" Spell Points remaining";
+
+ChatMessage.create({
+user : game.user._id,
+content : feedback,
+speaker : speaker
+});
+
+// Wild Magic surge check
+// Just comment out the next line, and it won't roll for surge.
+let wildroll = new Roll('1d20').roll().total;
+let wildrollcheck = spelllevel + 1;
+if (wildroll <= wildrollcheck ) { 
+
+//ChatMessage.create({
+//user : game.user._id,
+//content : 'Rolled for Wild Magic: ' + wildroll + '\n Wild Magic Surge!?',
+//speaker : speaker
+//});
+
+// roll for its level
+let wildrolllevel = new Roll('1d20').roll().total;
+
+if (wildrolllevel <= 3 ) {
+ChatMessage.create({
+user : game.user._id,
+content : 'Rolled for Wild Magic Surge: ' + wildroll + ' against DC ' + wildrollcheck + '!\n And ' + wildrolllevel + ' for its level! \n Extreme Wild Magic Surge!',
+speaker : speaker
+});
+const table = game.tables.entities.find(t => t.name === "Wild Surge Variant (Extreme list)");
+table.draw();
+}
+else {
+
+if (wildrolllevel <= 9 ) {
+ChatMessage.create({
+user : game.user._id,
+content : 'Rolled for Wild Magic Surge: ' + wildroll + ' against DC ' + wildrollcheck + '!\n And ' + wildrolllevel + ' for its level! \n Wild Magic Surge!',
+speaker : speaker
+});
+const table = game.tables.entities.find(t => t.name === "Wild Surge Variant (Moderate list)");
+table.draw();
+}
+
+else {
+ChatMessage.create({
+user : game.user._id,
+content : 'Rolled for Wild Magic Surge: ' + wildroll + ' against DC ' + wildrollcheck + '!\n And ' + wildrolllevel + ' for its level! \n Wild Magic Surge, but only a minor one.',
+speaker : speaker
+});
+const table = game.tables.entities.find(t => t.name === "Wild Surge Variant (Nuisance list)");
+table.draw();
+}}
+
+//const table = game.tables.entities.find(t => t.name === "Wild Magic Surge"); table.draw();
+
+}
+else {
+ChatMessage.create({
+user : game.user._id,
+content : 'Rolled for Wild Magic Surge: ' + wildroll + ' against DC ' + wildrollcheck + '!\n Take that magic!', 
+speaker : speaker
+});
+}
+
+}
+else {ChatMessage.create({
+user : game.user._id,
+content : "Not enough sorcery points",
+speaker : speaker
+});
+};
+}
+}
+}).render(true);
